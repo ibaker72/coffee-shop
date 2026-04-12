@@ -149,6 +149,7 @@ export interface ShopFilters {
   featured?: boolean;
   sort?: SortOption;
   page?: number;
+  search?: string;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
