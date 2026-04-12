@@ -1,0 +1,545 @@
+// prisma/schema.prisma
+// Qahwa & Co — E-Commerce Platform Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL") // Required for Supabase + PgBouncer
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+  FAILED
+}
+
+enum FulfillmentStatus {
+  UNFULFILLED
+  PACKED
+  SHIPPED
+  DELIVERED
+}
+
+enum GrindType {
+  WHOLE_BEAN
+  COARSE
+  MEDIUM
+  FINE
+  ESPRESSO_GRIND
+  TURKISH
+  TEA_LOOSE_LEAF
+  TEA_BAGS
+}
+
+enum ProductCategory {
+  COFFEE
+  TEA
+  GIFT_SET
+  ACCESSORY
+}
+
+enum ProductType {
+  SINGLE_ORIGIN
+  BLEND
+  ARABIC_COFFEE
+  ESPRESSO_BLEND
+  COLD_BREW
+  HERBAL_TEA
+  BLACK_TEA
+  CHAI
+  GIFT_BOX
+  ACCESSORY
+}
+
+enum RoastLevel {
+  LIGHT
+  MEDIUM_LIGHT
+  MEDIUM
+  MEDIUM_DARK
+  DARK
+  EXTRA_DARK
+}
+
+enum CouponType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  FREE_SHIPPING
+}
+
+enum WholesaleStatus {
+  PENDING
+  CONTACTED
+  APPROVED
+  REJECTED
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Auth — NextAuth v4 Required Models
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Users & Addresses
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String? // Null for OAuth users
+  role          Role      @default(CUSTOMER)
+  phone         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts               Account[]
+  sessions               Session[]
+  orders                 Order[]
+  reviews                Review[]
+  addresses              Address[]
+  wholesaleInquiries     WholesaleInquiry[]
+  newsletterSubscription NewsletterSubscriber?
+
+  @@index([email])
+  @@index([role])
+}
+
+model Address {
+  id         String   @id @default(cuid())
+  userId     String
+  label      String? // "Home", "Work", "Office"
+  firstName  String
+  lastName   String
+  company    String?
+  line1      String
+  line2      String?
+  city       String
+  state      String?
+  postalCode String
+  country    String   @default("GB")
+  phone      String?
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@index([userId])
+  @@index([isDefault])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Product Catalog
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?  @db.Text
+  imageUrl    String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  products Product[]
+
+  @@index([slug])
+  @@index([sortOrder])
+}
+
+model Product {
+  id               String          @id @default(cuid())
+  name             String
+  slug             String          @unique
+  shortDescription String?
+  description      String          @db.Text
+  story            String?         @db.Text // Brand storytelling — rendered on PDP
+  categoryId       String
+  category_type    ProductCategory
+  productType      ProductType
+
+  // Origin & Roast
+  origin     String? // "Yemen", "Ethiopia", "Colombia"
+  region     String? // "Yirgacheffe", "Huila"
+  roastLevel RoastLevel?
+
+  // Tasting & Brewing
+  flavorNotes       String[] // ["cardamom", "dark chocolate", "dried fruit"]
+  brewMethods       String[] // ["pour over", "French press", "espresso"]
+  servingSuggestion String?  @db.Text // Tea: "Serve with mint & sugar"
+
+  // Display
+  featured     Boolean  @default(false)
+  active       Boolean  @default(true)
+  images       String[] // Cloudinary URLs (index 0 = primary)
+  thumbnailUrl String? // Pre-computed thumbnail for cards
+
+  // Physical
+  weightGrams Int? // Net product weight for shipping calculations
+
+  // SEO
+  metaTitle       String?
+  metaDescription String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  category           Category            @relation(fields: [categoryId], references: [id])
+  variants           ProductVariant[]
+  reviews            Review[]
+  orderItems         OrderItem[]
+  collectionProducts CollectionProduct[]
+
+  @@index([slug])
+  @@index([featured])
+  @@index([active])
+  @@index([categoryId])
+  @@index([category_type])
+  @@index([productType])
+}
+
+model ProductVariant {
+  id          String     @id @default(cuid())
+  productId   String
+  name        String // "250g – Whole Bean" — display label
+  sku         String     @unique
+  price       Int // Stored in PENCE (never use Float for money)
+  compareAt   Int? // Original price for sale badge display
+  stock       Int        @default(0)
+  lowStock    Int        @default(5) // Threshold for "Low Stock" badge
+  grind       GrindType?
+  weightGrams Int? // Variant weight (250, 500, 1000)
+  isDefault   Boolean    @default(false) // Pre-selected variant on PDP
+  active      Boolean    @default(true)
+
+  // Stripe — set after creating prices in Stripe Dashboard
+  stripePriceId             String? // One-time payment price ID
+  stripeSubscriptionPriceId String? // TODO: Phase 2 — recurring subscription price
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+
+  @@index([productId])
+  @@index([sku])
+  @@index([active])
+  @@index([isDefault])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Collections (curated sets — Eid, Ramadan, Seasonal, Gifts, New Arrivals)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Collection {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  description String?   @db.Text
+  imageUrl    String?
+  featured    Boolean   @default(false)
+  active      Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  startDate   DateTime? // Seasonal collections: show from this date
+  endDate     DateTime? // Seasonal collections: hide after this date
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  products CollectionProduct[]
+
+  @@index([slug])
+  @@index([featured])
+  @@index([active])
+  @@index([startDate])
+  @@index([endDate])
+}
+
+model CollectionProduct {
+  id           String @id @default(cuid())
+  collectionId String
+  productId    String
+  sortOrder    Int    @default(0)
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  product    Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, productId])
+  @@index([collectionId])
+  @@index([productId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Orders
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Order {
+  id          String  @id @default(cuid())
+  orderNumber String  @unique // e.g. QC-2026-00042 — human-readable for support
+  userId      String? // Null = guest checkout
+  addressId   String? // FK to saved address (optional reference)
+  email       String // Always stored directly — not derived from user
+
+  status            OrderStatus       @default(PENDING)
+  paymentStatus     PaymentStatus     @default(UNPAID)
+  fulfillmentStatus FulfillmentStatus @default(UNFULFILLED)
+
+  // Stripe references
+  stripeSessionId String? @unique
+  stripePaymentId String? @unique
+
+  // Financials — all in PENCE
+  subtotal       Int
+  discountAmount Int @default(0)
+  shippingCost   Int @default(0)
+  taxAmount      Int @default(0)
+  total          Int
+
+  // Coupon snapshot — coupon record may be deleted later; preserve code for history
+  couponId   String?
+  couponCode String?
+
+  // Address snapshots (Json) — CRITICAL: must not change if customer edits saved address
+  shippingAddress Json
+  billingAddress  Json?
+
+  // Fulfillment
+  trackingNumber  String?
+  trackingCarrier String?
+  shippedAt       DateTime?
+  deliveredAt     DateTime?
+
+  notes     String?  @db.Text // Internal admin notes
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  address Address?    @relation(fields: [addressId], references: [id], onDelete: SetNull)
+  coupon  Coupon?     @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  items   OrderItem[]
+
+  @@index([userId])
+  @@index([email])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([fulfillmentStatus])
+  @@index([stripeSessionId])
+  @@index([orderNumber])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id        String @id @default(cuid())
+  orderId   String
+  productId String
+  variantId String
+  quantity  Int
+  unitPrice Int // Pence — SNAPSHOT at time of purchase (never derive from current variant)
+  total     Int // unitPrice * quantity
+
+  // Snapshots — product/variant may be edited or archived after purchase
+  productName  String
+  variantName  String // "250g – Whole Bean"
+  productImage String? // Primary image URL at time of order
+  productSlug  String // For order history "buy again" links
+
+  order   Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product        @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([variantId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Coupons & Discounts
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Coupon {
+  id           String     @id @default(cuid())
+  code         String     @unique
+  type         CouponType
+  value        Int // Percent (0–100) OR pence — depends on type
+  minimumOrder Int? // Minimum order total in pence to activate coupon
+  maxUses      Int? // Null = unlimited
+  usedCount    Int        @default(0)
+  userLimit    Int        @default(1) // Max uses per unique email
+  active       Boolean    @default(true)
+  startsAt     DateTime?
+  expiresAt    DateTime?
+  description  String? // Admin-facing notes
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders Order[]
+
+  @@index([code])
+  @@index([active])
+  @@index([expiresAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shipping Rates
+// ─────────────────────────────────────────────────────────────────────────────
+
+model ShippingRate {
+  id            String   @id @default(cuid())
+  name          String // "Standard UK", "Express Europe"
+  zone          String // "UK", "EU", "WORLDWIDE", "MIDDLE_EAST"
+  countries     String[] // ISO 3166-1 alpha-2 — e.g. ["GB"] or ["AE","SA","KW"]
+  minWeightG    Int      @default(0)
+  maxWeightG    Int? // Null = no upper limit
+  price         Int // Pence
+  estimatedDays String? // "3–5 business days"
+  freeAbove     Int? // Free shipping threshold in pence (null = never free)
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([zone])
+  @@index([active])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Reviews
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Review {
+  id        String  @id @default(cuid())
+  productId String
+  userId    String
+  rating    Int // 1–5
+  title     String?
+  body      String  @db.Text
+  approved  Boolean @default(false) // Requires admin moderation before showing publicly
+  helpful   Int     @default(0) // "Was this helpful?" upvotes
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // One review per user per product — enforced at DB level
+  @@unique([productId, userId])
+  @@index([productId])
+  @@index([approved])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Wholesale Inquiries
+// ─────────────────────────────────────────────────────────────────────────────
+
+model WholesaleInquiry {
+  id           String          @id @default(cuid())
+  userId       String?
+  firstName    String
+  lastName     String
+  email        String
+  phone        String?
+  company      String
+  website      String?
+  country      String
+  businessType String? // "cafe", "restaurant", "hotel", "retailer", "other"
+  message      String          @db.Text
+  status       WholesaleStatus @default(PENDING)
+  adminNotes   String?         @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([email])
+  @@index([createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Newsletter Subscribers
+// ─────────────────────────────────────────────────────────────────────────────
+
+model NewsletterSubscriber {
+  id        String  @id @default(cuid())
+  email     String  @unique
+  userId    String? @unique // Linked to user account if they later sign up
+  firstName String?
+  active    Boolean @default(true)
+  source    String? // "footer", "homepage_hero", "checkout", "wholesale"
+
+  subscribedAt   DateTime  @default(now())
+  unsubscribedAt DateTime?
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([active])
+  @@index([email])
+}

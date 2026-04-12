@@ -1,0 +1,128 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ── Qahwa & Co Brand Tokens ──────────────────────────────────────── */
+    /* Warm cream background */
+    --background: 42 35% 96%;
+    --foreground: 25 35% 12%;
+
+    /* Brand colours */
+    --cream: 42 40% 94%;
+    --cream-foreground: 25 35% 12%;
+
+    --sand: 38 30% 76%;
+    --sand-foreground: 25 35% 12%;
+
+    --espresso: 25 55% 16%;
+    --espresso-foreground: 42 40% 94%;
+
+    --olive: 76 20% 26%;
+    --olive-foreground: 42 40% 94%;
+
+    --gold: 42 62% 50%;
+    --gold-foreground: 25 35% 12%;
+
+    /* ── shadcn/ui Semantic Tokens ──────────────────────────────────────── */
+    --card: 0 0% 100%;
+    --card-foreground: 25 35% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 25 35% 12%;
+
+    --primary: 25 55% 16%;
+    --primary-foreground: 42 40% 94%;
+
+    --secondary: 38 30% 88%;
+    --secondary-foreground: 25 35% 18%;
+
+    --muted: 38 20% 92%;
+    --muted-foreground: 25 15% 48%;
+
+    --accent: 42 62% 50%;
+    --accent-foreground: 25 35% 12%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 38 25% 84%;
+    --input: 38 25% 84%;
+    --ring: 42 62% 50%;
+
+    --radius: 0.5rem;
+  }
+
+  /* Arabic / RTL support — ready for next-intl locale switching */
+  [dir="rtl"] {
+    font-family: var(--font-noto-kufi), var(--font-inter), system-ui, sans-serif;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Premium typography defaults */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display tracking-tight;
+  }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Custom scrollbar for webkit */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-muted;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-sand rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-espresso/40;
+  }
+}
+
+@layer utilities {
+  /* Text balance for headings */
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Premium glass card effect */
+  .glass {
+    @apply bg-white/80 backdrop-blur-sm border border-white/20;
+  }
+
+  /* Subtle grain overlay for brand sections */
+  .grain-overlay::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+
+  /* Product card hover lift */
+  .hover-lift {
+    @apply transition-transform duration-300 hover:-translate-y-1;
+  }
+
+  /* Focus ring in brand gold */
+  .focus-gold:focus-visible {
+    @apply outline-none ring-2 ring-gold ring-offset-2;
+  }
+}

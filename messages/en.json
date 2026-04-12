@@ -1,0 +1,28 @@
+{
+  "brand": {
+    "name": "Qahwa & Co",
+    "tagline": "Specialty Coffee Rooted in Tradition"
+  },
+  "nav": {
+    "shop": "Shop",
+    "coffee": "Coffee",
+    "tea": "Tea",
+    "gifts": "Gifts",
+    "ourStory": "Our Story",
+    "cart": "Cart",
+    "account": "Account",
+    "signIn": "Sign In",
+    "signOut": "Sign Out"
+  },
+  "common": {
+    "addToCart": "Add to Cart",
+    "outOfStock": "Out of Stock",
+    "lowStock": "Low Stock",
+    "sale": "Sale",
+    "featured": "Featured",
+    "new": "New",
+    "loading": "Loading...",
+    "viewAll": "View All",
+    "learnMore": "Learn More"
+  }
+}
