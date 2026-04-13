@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { PRODUCTS_PER_PAGE, RELATED_PRODUCTS_COUNT } from "@/lib/constants";
 import type { ProductWithVariants, ProductWithDetails, ShopFilters } from "@/types";
-import type { Prisma } from "@prisma/client";
+import type { Prisma, ProductCategory } from "@prisma/client";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared include shapes
@@ -203,13 +203,13 @@ export async function getProductBySlug(
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function getRelatedProducts(
-  product: { id: string; categoryId: string; category_type: string }
+  product: { id: string; categoryId: string; category_type: ProductCategory }
 ): Promise<ProductWithVariants[]> {
   const related = await db.product.findMany({
     where: {
       active: true,
       id: { not: product.id },
-      category_type: product.category_type as ProductWithVariants["category_type"],
+      category_type: product.category_type,
     },
     take: RELATED_PRODUCTS_COUNT,
     orderBy: [{ featured: "desc" }, { createdAt: "desc" }],

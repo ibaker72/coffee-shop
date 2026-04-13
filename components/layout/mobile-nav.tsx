@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import { useState } from "react";
+import { useSession, signOut } from "next-auth/react";
 import { useUIStore } from "@/stores/ui-store";
 import { NAV_LINKS, BRAND_NAME } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,7 @@ export function MobileNav() {
   const { isMobileNavOpen, closeMobileNav } = useUIStore();
   const pathname = usePathname();
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
+  const { data: session, status } = useSession();
 
   return (
     <Sheet
@@ -101,20 +103,34 @@ export function MobileNav() {
 
         <div className="border-t border-border pt-4 space-y-2">
           <Separator className="mb-4" />
-          <Link
-            href="/account"
-            onClick={closeMobileNav}
-            className="block rounded-md px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
-          >
-            My Account
-          </Link>
-          <Link
-            href="/auth/sign-in"
-            onClick={closeMobileNav}
-            className="block rounded-md px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
-          >
-            Sign In
-          </Link>
+          {status === "authenticated" && session?.user ? (
+            <>
+              <Link
+                href="/account"
+                onClick={closeMobileNav}
+                className="block rounded-md px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+              >
+                My Account
+              </Link>
+              <button
+                onClick={() => {
+                  closeMobileNav();
+                  signOut({ callbackUrl: "/" });
+                }}
+                className="block w-full text-left rounded-md px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+              >
+                Sign Out
+              </button>
+            </>
+          ) : (
+            <Link
+              href="/auth/sign-in"
+              onClick={closeMobileNav}
+              className="block rounded-md px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+            >
+              Sign In
+            </Link>
+          )}
         </div>
       </SheetContent>
     </Sheet>

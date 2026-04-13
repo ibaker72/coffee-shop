@@ -112,8 +112,11 @@ export function Header() {
             size="icon"
             aria-label="Search"
             className="hidden sm:flex"
+            asChild
           >
-            <Search className="h-5 w-5" />
+            <Link href="/shop">
+              <Search className="h-5 w-5" />
+            </Link>
           </Button>
 
           {/* User menu — session aware */}
