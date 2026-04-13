@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 
 /**
- * Middleware — Phase 3 update.
+ * Middleware — Phase 4 update.
  *
  * Guards /admin and /account with a cookie-presence check (lightweight).
  * Full JWT validation happens server-side in route handlers/layouts via
  * getServerSession(authOptions).
+ *
+ * /checkout routes are intentionally PUBLIC — guests can checkout without
+ * an account. Auth is optional; userId stored in Stripe metadata if present.
  */
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
