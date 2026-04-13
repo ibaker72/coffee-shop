@@ -191,14 +191,6 @@ export function CartDrawer() {
                   Checkout
                 </Link>
               </Button>
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={closeDrawer}
-                asChild
-              >
-                <Link href="/cart">View Full Cart</Link>
-              </Button>
             </div>
           </>
         )}

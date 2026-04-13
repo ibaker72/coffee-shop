@@ -12,8 +12,6 @@ import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Loader2, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 
-export const dynamic = "force-dynamic";
-
 export default function CheckoutPage() {
   const items = useCartStore((s) => s.items);
   const subtotal = useCartStore((s) => s.subtotal);
