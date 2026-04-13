@@ -20,10 +20,21 @@ const productCardInclude = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function getCollections(): Promise<Collection[]> {
-  const collections = await db.collection.findMany({
-    where: { active: true },
-    orderBy: [{ featured: "desc" }, { sortOrder: "asc" }, { name: "asc" }],
-  });
+  let collections: Collection[];
+  try {
+    collections = await db.collection.findMany({
+      where: { active: true },
+      orderBy: [{ featured: "desc" }, { sortOrder: "asc" }, { name: "asc" }],
+    });
+  } catch (error) {
+    // Graceful local-dev fallback when DATABASE_URL points to an unavailable DB.
+    if (error instanceof Error && /P1001|Can't reach database server/i.test(error.message)) {
+      console.warn("Database unavailable in getCollections; returning empty list.");
+      return [];
+    }
+
+    throw error;
+  }
 
   // Filter by date range in memory (avoids complex DB date comparisons with
   // nullable fields while keeping the query simple)
@@ -39,19 +50,30 @@ export async function getCollections(): Promise<Collection[]> {
 export async function getCollectionBySlug(
   slug: string
 ): Promise<CollectionWithProducts | null> {
-  const collection = await db.collection.findUnique({
-    where: { slug, active: true },
-    include: {
-      products: {
-        orderBy: { sortOrder: "asc" },
-        include: {
-          product: {
-            include: productCardInclude,
+  let collection;
+  try {
+    collection = await db.collection.findUnique({
+      where: { slug, active: true },
+      include: {
+        products: {
+          orderBy: { sortOrder: "asc" },
+          include: {
+            product: {
+              include: productCardInclude,
+            },
           },
         },
       },
-    },
-  });
+    });
+  } catch (error) {
+    // Graceful local-dev fallback when DATABASE_URL points to an unavailable DB.
+    if (error instanceof Error && /P1001|Can't reach database server/i.test(error.message)) {
+      console.warn("Database unavailable in getCollectionBySlug; returning null.");
+      return null;
+    }
+
+    throw error;
+  }
 
   if (!collection) return null;
   if (!isCollectionActive(collection.startDate, collection.endDate)) return null;

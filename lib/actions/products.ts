@@ -226,12 +226,22 @@ export async function getRelatedProducts(
 export async function getFeaturedProducts(
   limit = 8
 ): Promise<ProductWithVariants[]> {
-  const products = await db.product.findMany({
-    where: { active: true, featured: true },
-    take: limit,
-    orderBy: { createdAt: "desc" },
-    include: productCardInclude,
-  });
+  try {
+    const products = await db.product.findMany({
+      where: { active: true, featured: true },
+      take: limit,
+      orderBy: { createdAt: "desc" },
+      include: productCardInclude,
+    });
 
-  return products as unknown as ProductWithVariants[];
+    return products as unknown as ProductWithVariants[];
+  } catch (error) {
+    // When Postgres is unavailable in local dev, avoid taking down the homepage.
+    if (error instanceof Error && /P1001|Can't reach database server/i.test(error.message)) {
+      console.warn("Database unavailable in getFeaturedProducts; returning empty list.");
+      return [];
+    }
+
+    throw error;
+  }
 }
