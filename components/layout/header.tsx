@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { ShoppingBag, Menu, User, Search } from "lucide-react";
+import { ShoppingBag, Menu, User, Search, LogOut, Settings } from "lucide-react";
+import { useSession, signOut } from "next-auth/react";
+import { useState, useRef, useEffect } from "react";
 import { useCartStore } from "@/stores/cart-store";
 import { useUIStore } from "@/stores/ui-store";
 import { NAV_LINKS, BRAND_NAME } from "@/lib/constants";
@@ -14,6 +17,7 @@ export function Header() {
   const pathname = usePathname();
   const { openDrawer, itemCount } = useCartStore();
   const { toggleMobileNav } = useUIStore();
+  const { data: session, status } = useSession();
   const count = itemCount();
 
   return (
@@ -77,7 +81,6 @@ export function Header() {
                   )}
                 </Link>
 
-                {/* Dropdown */}
                 {hasChildren && (
                   <div className="absolute left-0 top-full z-50 hidden min-w-[180px] rounded-md border border-border bg-background p-1 shadow-lg group-hover:block animate-fade-in">
                     {"children" in link &&
@@ -113,12 +116,20 @@ export function Header() {
             <Search className="h-5 w-5" />
           </Button>
 
-          <Button variant="ghost" size="icon" aria-label="Account" asChild>
-            <Link href="/account">
-              <User className="h-5 w-5" />
-            </Link>
-          </Button>
+          {/* User menu — session aware */}
+          {status === "loading" ? (
+            <div className="h-10 w-10 rounded-md bg-muted animate-pulse" />
+          ) : status === "authenticated" && session?.user ? (
+            <UserMenu user={session.user} />
+          ) : (
+            <Button variant="ghost" size="icon" aria-label="Sign in" asChild>
+              <Link href="/auth/sign-in">
+                <User className="h-5 w-5" />
+              </Link>
+            </Button>
+          )}
 
+          {/* Cart */}
           <Button
             variant="ghost"
             size="icon"
@@ -139,5 +150,100 @@ export function Header() {
         </div>
       </div>
     </header>
+  );
+}
+
+// ── User menu dropdown ────────────────────────────────────────────────────────
+
+interface UserMenuProps {
+  user: {
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+  };
+}
+
+function UserMenu({ user }: UserMenuProps) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex h-10 w-10 items-center justify-center rounded-md hover:bg-muted transition-colors"
+        aria-label="Account menu"
+        aria-expanded={open}
+      >
+        {user.image ? (
+          <Image
+            src={user.image}
+            alt={user.name ?? "Account"}
+            width={28}
+            height={28}
+            className="rounded-full"
+          />
+        ) : (
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-espresso text-espresso-foreground text-xs font-semibold">
+            {(user.name ?? user.email ?? "U").charAt(0).toUpperCase()}
+          </div>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full z-50 mt-1 w-52 rounded-md border border-border bg-background p-1 shadow-lg animate-fade-in">
+          {/* Identity */}
+          <div className="px-3 py-2 border-b border-border mb-1">
+            {user.name && (
+              <p className="text-sm font-medium truncate">{user.name}</p>
+            )}
+            <p className="text-xs text-muted-foreground truncate">
+              {user.email}
+            </p>
+          </div>
+
+          <Link
+            href="/account"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 rounded-sm px-3 py-2 text-sm hover:bg-muted transition-colors"
+          >
+            <Settings className="h-4 w-4 text-muted-foreground" />
+            My Account
+          </Link>
+          <Link
+            href="/account/orders"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 rounded-sm px-3 py-2 text-sm hover:bg-muted transition-colors"
+          >
+            <ShoppingBag className="h-4 w-4 text-muted-foreground" />
+            My Orders
+          </Link>
+
+          <div className="border-t border-border mt-1 pt-1">
+            <button
+              onClick={() => {
+                setOpen(false);
+                signOut({ callbackUrl: "/" });
+              }}
+              className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+              Sign Out
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
