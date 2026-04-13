@@ -20,6 +20,13 @@ const productCardInclude = {
   },
 } satisfies Prisma.ProductInclude;
 
+function isDbUnavailableError(error: unknown): error is Error {
+  return (
+    error instanceof Error &&
+    /P1001|Can't reach database server/i.test(error.message)
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // getProducts
 // ─────────────────────────────────────────────────────────────────────────────
@@ -65,37 +72,46 @@ export async function getProducts(filters: ShopFilters): Promise<ProductsResult>
       : {}),
   };
 
-  // Price sorting requires a two-step query since Prisma doesn't support
-  // orderBy on related scalar aggregates (only _count).
-  if (filters.sort === "price-asc" || filters.sort === "price-desc") {
-    return getProductsSortedByPrice(where, filters.sort, page, pageSize);
+  try {
+    // Price sorting requires a two-step query since Prisma doesn't support
+    // orderBy on related scalar aggregates (only _count).
+    if (filters.sort === "price-asc" || filters.sort === "price-desc") {
+      return await getProductsSortedByPrice(where, filters.sort, page, pageSize);
+    }
+
+    const orderBy: Prisma.ProductOrderByWithRelationInput[] =
+      filters.sort === "newest"
+        ? [{ createdAt: "desc" }]
+        : filters.sort === "name-asc"
+        ? [{ name: "asc" }]
+        : [{ featured: "desc" }, { createdAt: "desc" }]; // default: featured
+
+    const [products, total] = await Promise.all([
+      db.product.findMany({
+        where,
+        orderBy,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: productCardInclude,
+      }),
+      db.product.count({ where }),
+    ]);
+
+    return {
+      products: products as unknown as ProductWithVariants[],
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
+  } catch (error) {
+    if (isDbUnavailableError(error)) {
+      console.warn("Database unavailable in getProducts; returning empty result.");
+      return { products: [], total: 0, page, pageSize, totalPages: 0 };
+    }
+
+    throw error;
   }
-
-  const orderBy: Prisma.ProductOrderByWithRelationInput[] =
-    filters.sort === "newest"
-      ? [{ createdAt: "desc" }]
-      : filters.sort === "name-asc"
-      ? [{ name: "asc" }]
-      : [{ featured: "desc" }, { createdAt: "desc" }]; // default: featured
-
-  const [products, total] = await Promise.all([
-    db.product.findMany({
-      where,
-      orderBy,
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-      include: productCardInclude,
-    }),
-    db.product.count({ where }),
-  ]);
-
-  return {
-    products: products as unknown as ProductWithVariants[],
-    total,
-    page,
-    pageSize,
-    totalPages: Math.ceil(total / pageSize),
-  };
 }
 
 async function getProductsSortedByPrice(
@@ -237,7 +253,7 @@ export async function getFeaturedProducts(
     return products as unknown as ProductWithVariants[];
   } catch (error) {
     // When Postgres is unavailable in local dev, avoid taking down the homepage.
-    if (error instanceof Error && /P1001|Can't reach database server/i.test(error.message)) {
+    if (isDbUnavailableError(error)) {
       console.warn("Database unavailable in getFeaturedProducts; returning empty list.");
       return [];
     }
